@@ -617,7 +617,8 @@
                 }
                 
             } catch (error) {
-                console.error("Firebase Initialisierung fehlgeschlagen:", error);
+                // HIER WAR DIE FEHLERHAFTE FEHLERMELDUNG
+                console.error("Fehler beim Laden der Server-Daten (API):", error);
                 document.body.classList.remove('initial-loading');
                 document.getElementById('calendar-container').innerHTML = '<div class="text-center p-8 text-red-500 font-semibold">Server-Daten konnten nicht geladen werden. Bitte überprüfen Sie die Verbindung.</div>';
             }
@@ -1619,4 +1620,5 @@
 </script>
 </body>
 </html>
+
 
