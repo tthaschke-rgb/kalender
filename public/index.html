@@ -3,10 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Team-Planungskalender (MongoDB Backend)</title>
+    <title>Team-Planungskalender</title>
     
+    <!-- Tailwind CSS und Inter Font laden -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    
     <style>
         /* Angepasste Schriftart */
         body { font-family: 'Inter', sans-serif; }
@@ -14,7 +16,7 @@
         /* Stil für die Zeitleiste */
         .time-slot { 
             height: 60px; 
-            border-bottom: 1px solid #d1d5db;
+            border-bottom: 1px solid #d1d5db; /* Dunkler für die volle Stunde */ 
             display: flex; 
             align-items: center; 
             justify-content: center; 
@@ -31,548 +33,1118 @@
             pointer-events: none;
             border-right: 1px solid #e5e7eb;
         }
-
+        
         /* Stil für die 60px Kalenderzellen */
         .calendar-cell {
             position: relative;
-            height: 60px;
+            height: 60px; /* 1px pro Minute, 60 Minuten */
             border-right: 1px solid #e5e7eb;
-            border-bottom: 1px solid #e5e7eb;
+            border-bottom: 1px solid #f3f4f6; /* Heller für die halbe Stunde */
+            box-sizing: border-box;
         }
         
-        .clickable-slot:hover {
-            background-color: #f3f4f6; /* Lighter hover */
-            cursor: pointer;
-        }
-        
-        .holiday-cell { background-color: #fce7e7 !important; } /* Very Light Red */
-        .off-hours-cell { background-color: #f9fafb !important; } /* Light Gray for non-working hours */
-
-        /* Stil für Termine im Grid */
-        .appointment-box {
-            position: absolute;
-            left: 2%;
-            right: 2%;
-            background-color: #3b82f6; /* Blue 500 */
-            color: white;
-            border-radius: 4px;
-            padding: 2px 5px;
-            font-size: 0.75rem;
-            line-height: 1.2;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            border: 1px solid #1e40af;
-            z-index: 10;
-            cursor: pointer;
-            transition: all 0.15s ease-in-out;
-        }
-        
-        .appointment-box:hover {
-            box-shadow: 0 4px 6px rgba(0,0,0,0.15);
-            transform: translateY(-1px);
-        }
-
-        /* Modal Backdrop */
-        .modal-backdrop {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 50;
-        }
-        
-        /* Visuelle Trennlinie in der Mitte der Zelle (30 Minuten) */
+        /* Horizontale Linie bei 30 Minuten innerhalb der Zelle */
         .minute-line-30 {
             position: absolute;
-            top: 50%;
+            top: 50%; /* Bei 30 Minuten */
             left: 0;
             right: 0;
             height: 1px;
-            background-color: #e5e7eb;
-            opacity: 0.5;
+            background-color: #f3f4f6; /* Hellgrau */
         }
-        
-        .time-header-cell {
-            min-width: 80px; /* Breite der Zeitspalte */
+
+        /* Hover-Stil für buchbare Slots */
+        .calendar-cell.clickable-slot:hover {
+            background-color: #e0f2f7; /* Helles Cyan */
+            cursor: pointer;
+        }
+
+        /* Stil für den aktuellen Tag */
+        .today-header {
+            background-color: #f0f9ff; /* Sehr helles Blau */
+            border-bottom: 3px solid #0ea5e9; /* Markante blaue Linie */
+        }
+
+        /* Stil für Feiertage */
+        .holiday-header, .holiday-cell {
+            background-color: #fef2f2; /* Sehr helles Rot für Feiertage/Wochenenden */
+        }
+
+        /* Stil für Termine */
+        .appointment {
+            position: absolute;
+            z-index: 10;
+            background-color: #3b82f6; /* Blau */
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            font-size: 0.75rem;
+            line-height: 1rem;
+            opacity: 0.9;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .appointment:hover {
+            opacity: 1;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transform: translateY(-1px);
+        }
+
+        /* Flexbox-Stil für Layout */
+        .calendar-grid-container {
+            display: grid;
+            grid-template-columns: auto 1fr; /* Zeitleiste und Kalenderbereich */
+            min-width: 100%;
+        }
+
+        .calendar-main-grid {
+            display: grid;
+            /* grid-template-columns wird dynamisch in JS gesetzt */
+            position: relative;
+        }
+
+        /* Stil für die aktuelle Zeitlinie */
+        #currentTimeLine {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background-color: #ef4444; /* Rot */
+            z-index: 20;
+            pointer-events: none;
+            box-shadow: 0 0 5px rgba(239, 68, 68, 0.7);
+        }
+
+        .calendar-header-cell {
+            padding: 8px 4px;
+            text-align: center;
+            font-size: 0.875rem;
+            font-weight: 600;
+            border-right: 1px solid #e5e7eb;
+            border-bottom: 1px solid #d1d5db;
+            background-color: #f9fafb;
+            min-width: 100px; /* Mindestbreite für Mitarbeiter-/Datumskopfzeilen */
+        }
+        .employee-header {
+            border-right: 1px solid #d1d5db;
+        }
+
+        /* Mobil-Anpassungen (Scrollbarkeit) */
+        @media (max-width: 768px) {
+            .calendar-container {
+                overflow-x: auto;
+            }
+            .calendar-grid-container {
+                width: max-content; /* Ermöglicht das Scrollen des gesamten Inhalts */
+            }
         }
     </style>
-</head>
-<body class="bg-gray-50 min-h-screen">
-    <div class="container mx-auto p-4 md:p-8">
-        <h1 class="text-3xl font-bold text-gray-800 mb-6">Team-Planungskalender (MongoDB Backend)</h1>
+    
+    <!-- Firebase SDKs laden (Version 11.6.1) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { 
+            getAuth, 
+            signInAnonymously, 
+            signInWithCustomToken, 
+            onAuthStateChanged 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            doc, 
+            setDoc, 
+            onSnapshot, 
+            collection, 
+            query, 
+            where, 
+            addDoc, 
+            deleteDoc,
+            serverTimestamp 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        setLogLevel('Debug'); // Firebase-Protokollierung für Debugging
+
+        // Globale Variablen für Firebase und App-Konfiguration
+        let app, db, auth, userId;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Standard-Kalendereinstellungen
+        const defaultCalendarSettings = {
+            startHour: 8,
+            endHour: 18,
+            dailyHours: {
+                0: null, // Sonntag geschlossen
+                1: { start: 8, end: 18 },
+                2: { start: 8, end: 18 },
+                3: { start: 8, end: 18 },
+                4: { start: 8, end: 18 },
+                5: { start: 8, end: 17 },
+                6: null // Samstag geschlossen
+            },
+            holidays: [
+                // Beispiel-Feiertage: 1. Januar und 25. Dezember (Muster: 'MM-TT')
+                "01-01",
+                "12-25"
+            ]
+        };
+
+        let calendarSettings = defaultCalendarSettings;
+        let employeesData = [];
+        let appointmentsData = [];
+
+        // Funktion zum Initialisieren von Firebase und Authentifizierung
+        async function initFirebase() {
+            if (firebaseConfig) {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                try {
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                        console.log("Erfolgreich mit Custom Token angemeldet.");
+                    } else {
+                        await signInAnonymously(auth);
+                        console.log("Anonym erfolgreich angemeldet.");
+                    }
+                } catch (error) {
+                    console.error("Fehler bei der Firebase-Authentifizierung:", error);
+                    // Sicherstellen, dass der Benutzer-ID-Fallback funktioniert
+                    userId = crypto.randomUUID();
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        console.log("Authentifizierter Benutzer-ID:", userId);
+                    } else {
+                        // Anonymer oder abgemeldeter Benutzer
+                        userId = userId || crypto.randomUUID();
+                        console.log("Unbekannte Benutzer-ID:", userId);
+                    }
+                    
+                    // Sobald die Authentifizierung abgeschlossen ist, die Echtzeit-Listener starten
+                    startFirestoreListeners();
+                });
+            } else {
+                console.error("Firebase-Konfiguration nicht verfügbar.");
+                userId = crypto.randomUUID();
+                // Wenn Firebase nicht verfügbar ist, nur lokale Daten verwenden (aber hier nicht implementiert)
+            }
+        }
+
+        // Firestore-Listener für Echtzeit-Updates
+        function startFirestoreListeners() {
+            if (!db || !userId) return;
+
+            // 1. Kalendereinstellungen (Privat)
+            const settingsRef = doc(db, 'artifacts', appId, 'users', userId, 'settings', 'calendar');
+            onSnapshot(settingsRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    calendarSettings = { ...defaultCalendarSettings, ...docSnap.data() };
+                    console.log("Kalendereinstellungen aktualisiert:", calendarSettings);
+                } else {
+                    console.log("Keine benutzerdefinierten Kalendereinstellungen gefunden. Verwende Standardwerte.");
+                    // Standardeinstellungen speichern, falls sie nicht existieren
+                    setDoc(settingsRef, defaultCalendarSettings, { merge: true }).catch(e => console.error("Fehler beim Speichern der Standardeinstellungen:", e));
+                }
+                renderCalendar();
+            }, (error) => console.error("Fehler beim Abhören der Einstellungen:", error));
+
+
+            // 2. Mitarbeiterdaten (Privat)
+            const employeesQuery = collection(db, 'artifacts', appId, 'users', userId, 'employees');
+            onSnapshot(employeesQuery, (snapshot) => {
+                employeesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                // Sortiere Mitarbeiter nach Name
+                employeesData.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+                console.log("Mitarbeiterdaten aktualisiert:", employeesData);
+                renderCalendar();
+            }, (error) => console.error("Fehler beim Abhören der Mitarbeiterdaten:", error));
+
+            // 3. Termindaten (Öffentlich - für Team-Sharing)
+            // Hier verwenden wir eine öffentliche Sammlung für Termine, damit alle Teammitglieder sie sehen können.
+            // Die Sicherheitsregeln müssten sicherstellen, dass nur authentifizierte Benutzer lesen/schreiben dürfen.
+            const appointmentsQuery = collection(db, 'artifacts', appId, 'public', 'data', 'appointments');
+            onSnapshot(appointmentsQuery, (snapshot) => {
+                appointmentsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                console.log("Termindaten aktualisiert:", appointmentsData);
+                renderCalendar();
+            }, (error) => console.error("Fehler beim Abhören der Termindaten:", error));
+        }
+
+        // --- Hilfsfunktionen für Datum und Zeit ---
+
+        const allWeekdays = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+
+        // Funktion zur Überprüfung, ob ein Datum ein Feiertag ist
+        function isHoliday(date, employeeId) {
+            const mmDd = `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+            const isGlobalHoliday = calendarSettings.holidays.includes(mmDd);
+
+            // Überprüfe die Einstellungen des einzelnen Mitarbeiters
+            const employee = employeesData.find(e => e.id === employeeId);
+            const empDailyHours = (employee && employee.dailyHours) || calendarSettings.dailyHours;
+
+            // Ist der Wochentag für diesen Mitarbeiter/Standard geschlossen?
+            const weekday = date.getDay();
+            const isClosedDay = !empDailyHours[weekday];
+
+            return isGlobalHoliday || isClosedDay;
+        }
+
+        // Erzeugt ein Array von Tagen, die gerendert werden sollen (z. B. 7 Tage ab heute)
+        function getDaysToRender(startDate, numDays = 7) {
+            const days = [];
+            for (let i = 0; i < numDays; i++) {
+                const date = new Date(startDate);
+                date.setDate(startDate.getDate() + i);
+                const dateString = date.toISOString().split('T')[0];
+                const dayOfWeek = allWeekdays[date.getDay()];
+                
+                days.push({
+                    date,
+                    dateString,
+                    dayOfWeek
+                });
+            }
+            return days;
+        }
+
+        // Globale Start- und Endstunden basierend auf Einstellungen ermitteln
+        function getGlobalTimeRange() {
+            let globalStartHour = calendarSettings.startHour;
+            let globalEndHour = calendarSettings.endHour;
+
+            // Prüfe, ob Mitarbeiter individuelle Startzeiten haben, die früher sind
+            employeesData.forEach(emp => {
+                if (emp.dailyHours) {
+                    Object.values(emp.dailyHours).forEach(hours => {
+                        if (hours && hours.start < globalStartHour) {
+                            globalStartHour = hours.start;
+                        }
+                    });
+                }
+            });
+
+            return { globalStartHour, globalEndHour };
+        }
+
+        // --- Kalender-Rendering ---
+
+        // Haupt-Rendering-Funktion
+        function renderCalendar() {
+            const calendarContainer = document.getElementById('calendar-container');
+            if (!calendarContainer) return;
+            
+            // Lösche den vorherigen Inhalt
+            calendarContainer.innerHTML = '';
+            
+            if (employeesData.length === 0) {
+                 calendarContainer.innerHTML = `
+                    <div class="p-8 text-center text-gray-500 bg-white rounded-lg shadow-xl m-4">
+                        <svg class="w-12 h-12 mx-auto text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        <h3 class="mt-2 text-lg font-medium text-gray-900">Mitarbeiter fehlen</h3>
+                        <p class="mt-1 text-sm text-gray-500">Bitte fügen Sie Mitarbeiter über das Einstellungsmodal hinzu, um den Planungskalender zu verwenden.</p>
+                        <button id="openSettingsModalBtn" class="mt-4 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 shadow-md transition duration-150">
+                            Einstellungen öffnen
+                        </button>
+                        <p class="mt-2 text-xs text-gray-400">UserID: ${userId}</p>
+                    </div>
+                `;
+                 setupEventListeners(); // Stellt sicher, dass der Button funktioniert
+                 return;
+            }
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // Start des heutigen Tages
+            const daysToRender = getDaysToRender(today, 7); // Zeige 7 Tage ab heute
+            const { globalStartHour, globalEndHour } = getGlobalTimeRange();
+            const numHours = globalEndHour - globalStartHour;
+            const numColumns = employeesData.length;
+
+            // Kalender-Raster-Wrapper
+            const gridContainer = document.createElement('div');
+            gridContainer.className = 'calendar-grid-container';
+
+            // --- 1. Zeitleisten-Spalte erstellen ---
+            const timeAxis = document.createElement('div');
+            timeAxis.className = 'flex flex-col pt-[50px] sticky left-0 z-30 bg-white';
+            timeAxis.style.width = '60px'; // Feste Breite für die Zeitleiste
+
+            // Leere Ecke oben links
+            const emptyCorner = document.createElement('div');
+            emptyCorner.className = 'absolute top-0 left-0 h-[50px] w-[60px] border-b border-r border-gray-300 bg-gray-50 z-40';
+            timeAxis.appendChild(emptyCorner);
+
+            for (let h = 0; h < numHours; h++) {
+                const hour = globalStartHour + h;
+                const timeSlot = document.createElement('div');
+                timeSlot.className = 'time-slot';
+                timeSlot.textContent = `${String(hour).padStart(2, '0')}:00`;
+                timeAxis.appendChild(timeSlot);
+            }
+            gridContainer.appendChild(timeAxis);
+
+            // --- 2. Hauptkalender-Raster erstellen ---
+            const calendarMain = document.createElement('div');
+            calendarMain.className = 'calendar-main-grid overflow-x-auto';
+            calendarMain.style.gridTemplateColumns = `repeat(${numColumns}, minmax(100px, 1fr))`;
+
+            // a. Header-Reihe (Mitarbeiternamen und Datum)
+            employeesData.forEach(emp => {
+                const empHeader = document.createElement('div');
+                empHeader.className = 'calendar-header-cell employee-header flex flex-col items-center justify-center h-[50px]';
+                empHeader.innerHTML = `
+                    <span class="text-sm font-bold text-gray-800">${emp.name}</span>
+                    <span class="text-xs text-gray-500">${emp.role || 'Mitarbeiter'}</span>
+                `;
+                calendarMain.appendChild(empHeader);
+            });
+
+            // b. Rasterzellen für Termine
+            const calendarContent = document.createElement('div');
+            calendarContent.className = 'calendar-content';
+            calendarContent.style.display = 'grid';
+            calendarContent.style.gridTemplateColumns = `repeat(${numColumns}, 1fr)`;
+
+            // Für jeden Tag
+            daysToRender.forEach(d => {
+                const isToday = d.date.toDateString() === new Date().toDateString();
+
+                // Für jeden Mitarbeiter
+                employeesData.forEach(emp => {
+                    const empId = emp.id;
+                    const isEmpWorking = !isHoliday(d.date, empId);
+
+                    // Individuelle/globale Arbeitszeiten für diesen Tag
+                    const empHours = (emp.dailyHours && emp.dailyHours[d.date.getDay()]) || calendarSettings.dailyHours[d.date.getDay()];
+                    const dayStartHour = empHours ? empHours.start : globalStartHour;
+                    const dayEndHour = empHours ? empHours.end : globalEndHour;
+
+                    // Header-Zelle für Tag/Datum
+                    const dateHeader = document.createElement('div');
+                    dateHeader.className = `calendar-header-cell ${isToday ? 'today-header' : ''} ${!isEmpWorking ? 'holiday-header' : ''}`;
+                    dateHeader.innerHTML = `
+                        <span class="text-xs ${isToday ? 'text-blue-600' : 'text-gray-700'}">${d.dayOfWeek.substring(0, 2)}</span>
+                        <span class="text-lg font-bold ${isToday ? 'text-blue-600' : 'text-gray-900'}">${d.date.getDate()}.</span>
+                    `;
+                    calendarMain.appendChild(dateHeader);
+
+                    // Zellen für Stunden
+                    for (let h = 0; h < numHours; h++) {
+                        const hour = globalStartHour + h;
+                        const cell = document.createElement('div');
+
+                        const isWithinHours = hour >= dayStartHour && hour < dayEndHour;
+
+                        if (isEmpWorking && isWithinHours) {
+                            cell.className = 'calendar-cell clickable-slot';
+                            cell.dataset.employeeId = empId;
+                            cell.dataset.hour = hour;
+                            cell.dataset.date = d.dateString;
+                            cell.innerHTML = '<div class="minute-line-30"></div>';
+                        } else {
+                            // Wenn nicht buchbar: Feiertag/Wochenende oder außerhalb der Arbeitszeit
+                            const isHolidayDay = isHoliday(d.date, empId);
+                            cell.className = `calendar-cell ${isHolidayDay ? 'holiday-cell' : 'bg-gray-100'}`;
+                        }
+                        calendarContent.appendChild(cell);
+                    }
+                });
+            });
+
+            calendarMain.appendChild(calendarContent);
+            gridContainer.appendChild(calendarMain);
+            calendarContainer.appendChild(gridContainer);
+            
+            renderAppointmentsInGrid(calendarContent, daysToRender, employeesData, globalStartHour, globalEndHour);
+            updateCurrentTimeLine(calendarMain, globalStartHour, globalEndHour);
+        }
+
+        // --- Termin-Rendering ---
+
+        // Termine im Raster positionieren
+        function renderAppointmentsInGrid(grid, daysToRender, employees, globalStartHour, globalEndHour) {
+            
+            // Lösche alle vorhandenen Termine (wird bei jedem Neu-Rendering aufgerufen)
+            grid.querySelectorAll('.appointment').forEach(app => app.remove());
+
+            appointmentsData.forEach(app => {
+                const appDate = new Date(app.date);
+                const appStart = new Date(app.startTime);
+                const appEnd = new Date(app.endTime);
+
+                // Finde den Index des Tages und des Mitarbeiters im gerenderten Raster
+                const dayIndex = daysToRender.findIndex(d => d.dateString === app.date);
+                const employeeIndex = employees.findIndex(emp => emp.id === app.employeeId);
+
+                if (dayIndex === -1 || employeeIndex === -1) {
+                    return; // Termin liegt außerhalb des aktuellen Anzeigebereichs
+                }
+
+                // Gesamtdauer des angezeigten Kalenderbereichs in Stunden
+                const totalHours = globalEndHour - globalStartHour;
+                
+                // Positionen berechnen (Minuten seit Beginn der Kalenderanzeige)
+                const startMinutesSinceGlobalStart = (appStart.getHours() - globalStartHour) * 60 + appStart.getMinutes();
+                const endMinutesSinceGlobalStart = (appEnd.getHours() - globalStartHour) * 60 + appEnd.getMinutes();
+                
+                // Wenn der Termin außerhalb des globalen Bereichs liegt, ihn auf den Bereich beschränken
+                const clippedStartMinutes = Math.max(0, startMinutesSinceGlobalStart);
+                const clippedEndMinutes = Math.min(totalHours * 60, endMinutesSinceGlobalStart);
+
+                const durationMinutes = clippedEndMinutes - clippedStartMinutes;
+                
+                // Position in Prozent/Pixel relativ zur gesamten Zeitachse
+                const topPercent = (clippedStartMinutes / (totalHours * 60)) * 100;
+                const heightPercent = (durationMinutes / (totalHours * 60)) * 100;
+
+                // Index der Spalte im gesamten Raster (Mitarbeiterindex)
+                const columnIndex = employeeIndex;
+                // Index der Reihe im Raster (Tag-Index)
+                const rowIndex = dayIndex * totalHours; 
+
+                // Erstelle das Appointment-Element
+                const appEl = document.createElement('div');
+                appEl.className = 'appointment';
+                appEl.dataset.appointmentId = app.id;
+                appEl.dataset.employeeId = app.employeeId;
+                appEl.dataset.date = app.date;
+
+                // Berechnung der CSS-Rasterposition
+                // Jede Mitarbeiter-Spalte hat totalHours * numDays Zeilen im Raster. 
+                // Dies ist etwas komplexer, da wir Termine über Stunden hinweg rendern müssen, 
+                // nicht nur in einer einzelnen 60-Minuten-Zelle.
+                
+                // Da wir das Raster so aufgebaut haben, dass es *horizontal* nach Mitarbeitern und *vertikal* nach Stunden geht,
+                // können wir die Position relativ zur gesamten Spalte (dem Mitarbeiter) berechnen.
+                
+                // Anzahl der Stunden pro Mitarbeiter-Tag, die wir im Raster anzeigen
+                const numHoursPerDay = globalEndHour - globalStartHour;
+
+                // Gesamtzahl der Zeilen für einen Mitarbeiter (7 Tage * Stunden)
+                const totalRowsPerEmployee = daysToRender.length * numHoursPerDay;
+                
+                // Die Zelle, in der der Termin beginnt. Index: (TagIndex * numHoursPerDay) + (StartStunde - globalStartHour)
+                const startCellIndex = (dayIndex * numHoursPerDay) + (appStart.getHours() - globalStartHour);
+                
+                // Positioniere den Termin in seiner Spalte (Mitarbeiter)
+                // Die CSS-Grid-Eigenschaften müssen auf den calendarContent angewendet werden, der nur die Zellen enthält.
+                // Die Zelle für (TagIndex, EmployeeIndex, HourIndex) hat den Index:
+                // cellIndex = (TagIndex * numEmployees * numHoursPerDay) + (EmployeeIndex * numHoursPerDay) + HourIndex
+                
+                
+                // Da wir die Zellen Tag für Tag für jeden Mitarbeiter rendern:
+                // Zelle, in der dieser Termin *beginnt*:
+                // index = (dayIndex * numEmployees * numHours) + (employeeIndex * numHours) + (hour - globalStartHour)
+
+                const firstCellIndex = (dayIndex * employees.length * numHours) + (employeeIndex * numHours) + (0);
+                const targetCell = grid.children[firstCellIndex]; // Die erste Zelle des Tages/Mitarbeiters
+
+                if (targetCell) {
+                    const rect = targetCell.getBoundingClientRect();
+                    const gridRect = grid.getBoundingClientRect();
+
+                    // Absolute Position relativ zum Gitter-Container
+                    const cellTop = targetCell.offsetTop;
+                    const cellHeight = rect.height * numHours; // Gesamthöhe des Tages in Pixel
+
+                    // y-Position relativ zum Tages-Start
+                    const topPx = (startMinutesSinceGlobalStart / 60) * rect.height; // Höhe pro Stunde = rect.height
+
+                    appEl.style.position = 'absolute';
+                    appEl.style.gridColumn = employeeIndex + 1; // Rasterspalte (1-basiert)
+                    appEl.style.gridRow = dayIndex * numHours + 1; // Starte in der ersten Stunde des Tages
+                    
+                    // Positionierung mit absoluten Werten innerhalb der Mitarbeiter-Spalte (relativ zum Kalender-Content)
+                    // Da das Grid jedoch die Zellen (60px hoch) für jede Stunde rendert, müssen wir die Position
+                    // basierend auf den Zellen-Offsets berechnen.
+                    
+                    // Die y-Koordinate des Termins (relativ zum Beginn des *Tages* für diesen Mitarbeiter)
+                    // Offizielle Zellen-Höhe ist 60px
+                    const pixelsPerHour = 60; 
+                    const topOffset = (appStart.getHours() - globalStartHour) * pixelsPerHour + (appStart.getMinutes() / 60) * pixelsPerHour;
+                    const heightOffset = (durationMinutes / 60) * pixelsPerHour;
+
+                    // Finde alle Zellen für diesen Tag/Mitarbeiter, um den korrekten Startpunkt zu finden
+                    // Da die Zelle für jede Stunde 60px hoch ist, können wir die Gesamtverschiebung berechnen.
+                    
+                    // Die Zellen für diesen Tag und Mitarbeiter beginnen bei der ersten Zelle des Tages (z.B. 8:00)
+                    const startCell = grid.children[(dayIndex * employees.length * numHours) + (employeeIndex * numHours) + 0];
+                    if (startCell) {
+                        appEl.style.position = 'absolute';
+                        appEl.style.top = `${startCell.offsetTop + topOffset}px`;
+                        appEl.style.height = `${heightOffset}px`;
+                        appEl.style.width = `calc(100% - 4px)`; // Etwas Platz lassen
+                        appEl.style.left = `2px`;
+                        
+                        appEl.innerHTML = `
+                            <div class="font-bold whitespace-nowrap overflow-hidden text-ellipsis">${app.title || 'Termin'}</div>
+                            <div class="text-xs whitespace-nowrap overflow-hidden text-ellipsis">${appStart.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} - ${appEnd.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</div>
+                        `;
+                        
+                        // Füge den Termin dem Kalender-Content hinzu (da er absolute Positionierung verwendet)
+                        grid.appendChild(appEl);
+                    }
+                }
+            });
+        }
         
-        <!-- Kalender-Container -->
-        <div id="calendar-container" class="bg-white shadow-xl rounded-lg overflow-hidden">
-            <div id="calendar-header" class="flex justify-between items-center p-4 bg-gray-50 border-b">
-                <button id="prev-week" class="p-2 rounded-full hover:bg-gray-200">
-                    <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
-                </button>
-                <h2 id="current-week-range" class="text-xl font-semibold text-gray-800">Woche wird geladen...</h2>
-                <button id="next-week" class="p-2 rounded-full hover:bg-gray-200">
-                    <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+        // Aktualisiert die rote Zeitlinie
+        function updateCurrentTimeLine(calendarMain, globalStartHour, globalEndHour) {
+            let line = document.getElementById('currentTimeLine');
+            if (!line) {
+                line = document.createElement('div');
+                line.id = 'currentTimeLine';
+                calendarMain.appendChild(line);
+            }
+
+            const now = new Date();
+            const currentHour = now.getHours();
+            const currentMinute = now.getMinutes();
+
+            // Nur rendern, wenn die aktuelle Zeit innerhalb des angezeigten Zeitfensters liegt
+            if (currentHour >= globalStartHour && currentHour < globalEndHour) {
+                const hourIndex = currentHour - globalStartHour; // Index der aktuellen Stunde
+                const minuteOffset = currentMinute / 60; // Verschiebung innerhalb der Stunde (0 bis 1)
+
+                // 50px für den Header, 60px für jede Stunde
+                const topPosition = 50 + (hourIndex * 60) + (minuteOffset * 60);
+
+                line.style.display = 'block';
+                line.style.top = `${topPosition}px`;
+            } else {
+                line.style.display = 'none';
+            }
+
+            // Aktualisiere die Linie jede Minute
+            setTimeout(() => updateCurrentTimeLine(calendarMain, globalStartHour, globalEndHour), 60000);
+        }
+
+        // --- Interaktionen und UI-Steuerung ---
+
+        // Funktion zum Öffnen des Einstellungs-Modals
+        function openSettingsModal() {
+            const modal = document.getElementById('settingsModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                loadSettingsToModal();
+            }
+        }
+        // Funktion zum Schließen des Einstellungs-Modals
+        function closeSettingsModal() {
+            const modal = document.getElementById('settingsModal');
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+        }
+
+        // Lädt die aktuellen Einstellungen in das Modal
+        function loadSettingsToModal() {
+            document.getElementById('startHour').value = calendarSettings.startHour;
+            document.getElementById('endHour').value = calendarSettings.endHour;
+            document.getElementById('holidays').value = calendarSettings.holidays.join(', ');
+            
+            // Mitarbeiterliste aktualisieren
+            const empList = document.getElementById('employeeList');
+            empList.innerHTML = '';
+            employeesData.forEach(emp => {
+                const li = document.createElement('li');
+                li.className = 'flex justify-between items-center p-2 bg-gray-50 rounded-lg mb-2';
+                li.innerHTML = `
+                    <span class="font-medium">${emp.name} (${emp.role || 'Rolle'})</span>
+                    <button data-id="${emp.id}" class="delete-emp-btn text-red-500 hover:text-red-700 transition duration-150">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3m-4 0h14"></path></svg>
+                    </button>
+                `;
+                empList.appendChild(li);
+            });
+        }
+        
+        // Speichert die allgemeinen Kalendereinstellungen
+        function saveCalendarSettings() {
+            const startHour = parseInt(document.getElementById('startHour').value);
+            const endHour = parseInt(document.getElementById('endHour').value);
+            const holidays = document.getElementById('holidays').value.split(',').map(s => s.trim()).filter(s => s.match(/^\d{2}-\d{2}$/));
+
+            if (startHour >= endHour || isNaN(startHour) || isNaN(endHour)) {
+                showMessage("Fehler: Die Startstunde muss vor der Endstunde liegen.", 'error');
+                return;
+            }
+
+            const newSettings = {
+                startHour,
+                endHour,
+                holidays,
+                // dailyHours werden beibehalten, da sie hier nicht bearbeitet werden
+            };
+            
+            const settingsRef = doc(db, 'artifacts', appId, 'users', userId, 'settings', 'calendar');
+            setDoc(settingsRef, newSettings, { merge: true })
+                .then(() => {
+                    showMessage("Kalendereinstellungen erfolgreich gespeichert.", 'success');
+                    closeSettingsModal();
+                })
+                .catch(e => {
+                    console.error("Fehler beim Speichern der Kalendereinstellungen:", e);
+                    showMessage("Fehler beim Speichern der Kalendereinstellungen.", 'error');
+                });
+        }
+
+        // Fügt einen neuen Mitarbeiter hinzu
+        function addEmployee(e) {
+            e.preventDefault();
+            const nameInput = document.getElementById('newEmpName');
+            const roleInput = document.getElementById('newEmpRole');
+            const newName = nameInput.value.trim();
+            const newRole = roleInput.value.trim();
+
+            if (!newName) {
+                showMessage("Bitte geben Sie einen Namen für den Mitarbeiter ein.", 'error');
+                return;
+            }
+
+            const employeesCollectionRef = collection(db, 'artifacts', appId, 'users', userId, 'employees');
+            addDoc(employeesCollectionRef, {
+                name: newName,
+                role: newRole,
+                dailyHours: defaultCalendarSettings.dailyHours, // Standard-Arbeitszeiten übernehmen
+                createdAt: serverTimestamp()
+            })
+            .then(() => {
+                showMessage(`Mitarbeiter '${newName}' erfolgreich hinzugefügt.`, 'success');
+                nameInput.value = '';
+                roleInput.value = '';
+                loadSettingsToModal(); // Aktualisiert die Liste im Modal
+            })
+            .catch(err => {
+                console.error("Fehler beim Hinzufügen des Mitarbeiters:", err);
+                showMessage("Fehler beim Hinzufügen des Mitarbeiters.", 'error');
+            });
+        }
+
+        // Löscht einen Mitarbeiter
+        function deleteEmployee(employeeId) {
+             const empRef = doc(db, 'artifacts', appId, 'users', userId, 'employees', employeeId);
+             deleteDoc(empRef)
+                 .then(() => {
+                     showMessage("Mitarbeiter erfolgreich gelöscht.", 'success');
+                     loadSettingsToModal(); // Aktualisiert die Liste im Modal
+                 })
+                 .catch(e => {
+                     console.error("Fehler beim Löschen des Mitarbeiters:", e);
+                     showMessage("Fehler beim Löschen des Mitarbeiters.", 'error');
+                 });
+        }
+
+        // --- Termin-Modal-Funktionen ---
+        
+        let currentSlot = {}; // Speichert die Daten des angeklickten Slots
+
+        function openAppointmentModal(slotData = null) {
+            const modal = document.getElementById('appointmentModal');
+            const form = document.getElementById('appointmentForm');
+            const deleteBtn = document.getElementById('deleteAppointmentBtn');
+            const employeeNameSpan = document.getElementById('appointmentEmployeeName');
+
+            // Setze Standardwerte zurück
+            form.reset();
+            deleteBtn.classList.add('hidden');
+            form.dataset.appointmentId = '';
+            
+            if (slotData) {
+                const emp = employeesData.find(e => e.id === slotData.employeeId);
+                employeeNameSpan.textContent = emp ? emp.name : 'Unbekannt';
+                
+                // Buchung eines neuen Slots
+                currentSlot = slotData;
+                
+                const dateObj = new Date(slotData.date);
+                const startHour = parseInt(slotData.hour);
+                
+                // Standard-Startzeit (volle Stunde)
+                dateObj.setHours(startHour, 0, 0, 0);
+                document.getElementById('appDate').value = slotData.date;
+                document.getElementById('appTimeStart').value = `${String(startHour).padStart(2, '0')}:00`;
+                
+                // Standard-Endzeit (eine Stunde später)
+                const endHour = startHour + 1;
+                document.getElementById('appTimeEnd').value = `${String(endHour).padStart(2, '0')}:00`;
+                
+                // Mitarbeiter-ID setzen (nicht änderbar)
+                form.dataset.employeeId = slotData.employeeId;
+
+            } else {
+                 // Bearbeiten eines vorhandenen Termins
+                const app = appointmentsData.find(a => a.id === form.dataset.appointmentId);
+                if (app) {
+                    const emp = employeesData.find(e => e.id === app.employeeId);
+                    employeeNameSpan.textContent = emp ? emp.name : 'Unbekannt';
+                    document.getElementById('appTitle').value = app.title;
+                    document.getElementById('appDescription').value = app.description || '';
+                    document.getElementById('appDate').value = app.date; // ISO-String
+                    
+                    const start = new Date(app.startTime);
+                    const end = new Date(app.endTime);
+                    document.getElementById('appTimeStart').value = start.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+                    document.getElementById('appTimeEnd').value = end.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+                    form.dataset.employeeId = app.employeeId;
+
+                    deleteBtn.classList.remove('hidden');
+                } else {
+                    return; // Fehler: Termin nicht gefunden
+                }
+            }
+            
+            modal.classList.remove('hidden');
+        }
+
+        function closeAppointmentModal() {
+            document.getElementById('appointmentModal').classList.add('hidden');
+            document.getElementById('appointmentForm').dataset.appointmentId = '';
+            currentSlot = {};
+        }
+
+        // Speichert oder aktualisiert einen Termin
+        function saveAppointment(e) {
+            e.preventDefault();
+            
+            const form = e.target;
+            const appointmentId = form.dataset.appointmentId;
+            const employeeId = form.dataset.employeeId;
+
+            const title = document.getElementById('appTitle').value.trim();
+            const description = document.getElementById('appDescription').value.trim();
+            const dateStr = document.getElementById('appDate').value;
+            const timeStartStr = document.getElementById('appTimeStart').value;
+            const timeEndStr = document.getElementById('appTimeEnd').value;
+            
+            if (!title || !dateStr || !timeStartStr || !timeEndStr) {
+                showMessage("Bitte füllen Sie alle erforderlichen Felder aus (Titel, Datum, Start-/Endzeit).", 'error');
+                return;
+            }
+
+            // Zeitobjekte erstellen
+            const startTimeStr = `${dateStr}T${timeStartStr}:00`;
+            const endTimeStr = `${dateStr}T${timeEndStr}:00`;
+            
+            const startTime = new Date(startTimeStr);
+            const endTime = new Date(endTimeStr);
+
+            if (endTime <= startTime) {
+                showMessage("Die Endzeit muss nach der Startzeit liegen.", 'error');
+                return;
+            }
+
+            const appointmentData = {
+                employeeId,
+                date: dateStr,
+                title,
+                description,
+                startTime: startTime.toISOString(), // Speichern als ISO-String
+                endTime: endTime.toISOString(),
+                bookedBy: userId,
+                createdAt: serverTimestamp()
+            };
+
+            const appointmentsCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'appointments');
+
+            if (appointmentId) {
+                // UPDATE
+                const appRef = doc(appointmentsCollectionRef, appointmentId);
+                setDoc(appRef, appointmentData, { merge: true })
+                    .then(() => {
+                        showMessage("Termin erfolgreich aktualisiert.", 'success');
+                        closeAppointmentModal();
+                    })
+                    .catch(err => {
+                        console.error("Fehler beim Aktualisieren des Termins:", err);
+                        showMessage("Fehler beim Aktualisieren des Termins.", 'error');
+                    });
+            } else {
+                // CREATE
+                 addDoc(appointmentsCollectionRef, appointmentData)
+                    .then(() => {
+                        showMessage("Termin erfolgreich erstellt.", 'success');
+                        closeAppointmentModal();
+                    })
+                    .catch(err => {
+                        console.error("Fehler beim Erstellen des Termins:", err);
+                        showMessage("Fehler beim Erstellen des Termins.", 'error');
+                    });
+            }
+        }
+
+        // Löscht einen Termin
+        function deleteAppointment() {
+            const appointmentId = document.getElementById('appointmentForm').dataset.appointmentId;
+            if (!appointmentId) return;
+            
+            const appRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'appointments'), appointmentId);
+            
+            deleteDoc(appRef)
+                .then(() => {
+                    showMessage("Termin erfolgreich gelöscht.", 'success');
+                    closeAppointmentModal();
+                })
+                .catch(e => {
+                    console.error("Fehler beim Löschen des Termins:", e);
+                    showMessage("Fehler beim Löschen des Termins.", 'error');
+                });
+        }
+        
+        // --- Benachrichtigungen (Message Box) ---
+        function showMessage(message, type = 'info') {
+            const box = document.getElementById('messageBox');
+            const icon = document.getElementById('messageIcon');
+            const text = document.getElementById('messageText');
+
+            box.classList.remove('bg-green-100', 'bg-red-100', 'bg-blue-100', 'text-green-700', 'text-red-700', 'text-blue-700');
+            icon.innerHTML = '';
+            
+            switch (type) {
+                case 'success':
+                    box.classList.add('bg-green-100', 'text-green-700');
+                    icon.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+                    break;
+                case 'error':
+                    box.classList.add('bg-red-100', 'text-red-700');
+                    icon.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+                    break;
+                default:
+                    box.classList.add('bg-blue-100', 'text-blue-700');
+                    icon.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+            }
+
+            text.textContent = message;
+            box.classList.remove('opacity-0', 'hidden');
+            box.classList.add('opacity-100');
+
+            setTimeout(() => {
+                box.classList.remove('opacity-100');
+                box.classList.add('opacity-0', 'hidden');
+            }, 5000);
+        }
+
+        // --- Event-Listener-Setup ---
+
+        function setupEventListeners() {
+            // Öffnen/Schließen des Einstellungs-Modals
+            document.getElementById('openSettingsModalBtn').onclick = openSettingsModal;
+            document.getElementById('closeSettingsModalBtn').onclick = closeSettingsModal;
+            document.getElementById('settingsModal').querySelector('.bg-black.bg-opacity-50').onclick = closeSettingsModal;
+
+            // Speichern der allgemeinen Einstellungen
+            document.getElementById('saveSettingsBtn').onclick = saveCalendarSettings;
+            
+            // Hinzufügen von Mitarbeitern
+            document.getElementById('addEmployeeForm').onsubmit = addEmployee;
+
+            // Löschen von Mitarbeitern (Delegiertes Event-Handling)
+            document.getElementById('employeeList').addEventListener('click', (e) => {
+                if (e.target.closest('.delete-emp-btn')) {
+                    const empId = e.target.closest('.delete-emp-btn').dataset.id;
+                    if (confirm("Sind Sie sicher, dass Sie diesen Mitarbeiter löschen möchten?")) {
+                       deleteEmployee(empId);
+                    }
+                }
+            });
+
+            // Termin-Modal-Funktionen
+            document.getElementById('closeAppointmentModalBtn').onclick = closeAppointmentModal;
+            document.getElementById('appointmentModal').querySelector('.bg-black.bg-opacity-50').onclick = closeAppointmentModal;
+            document.getElementById('appointmentForm').onsubmit = saveAppointment;
+            document.getElementById('deleteAppointmentBtn').onclick = deleteAppointment;
+            
+            // Slot-Klick-Handling (Delegiertes Event-Handling)
+            document.getElementById('calendar-container').addEventListener('click', (e) => {
+                const clickableSlot = e.target.closest('.clickable-slot');
+                if (clickableSlot) {
+                    const slotData = {
+                        employeeId: clickableSlot.dataset.employeeId,
+                        date: clickableSlot.dataset.date,
+                        hour: clickableSlot.dataset.hour
+                    };
+                    openAppointmentModal(slotData);
+                }
+
+                const appointmentEl = e.target.closest('.appointment');
+                if (appointmentEl) {
+                    const appointmentId = appointmentEl.dataset.appointmentId;
+                    const form = document.getElementById('appointmentForm');
+                    form.dataset.appointmentId = appointmentId; // Setze ID, um den Termin zu bearbeiten
+                    openAppointmentModal(null); // Ruft Modal zum Bearbeiten auf
+                }
+            });
+        }
+        
+        // Pseudo-Bestätigungsfunktion, da alert/confirm verboten sind
+        function confirm(message) {
+            // In einer echten Anwendung würden Sie hier ein benutzerdefiniertes Modal verwenden,
+            // das ein Promise zurückgibt. Hier verwenden wir eine einfache Logik.
+            // Der Benutzer wird implizit akzeptieren, da er auf den Löschen-Button geklickt hat.
+            // Für diese Implementierung geben wir immer true zurück, um die Löschfunktion zu ermöglichen.
+            return true; 
+        }
+
+        // Initialisierung beim Laden des Fensters
+        window.onload = function () {
+            initFirebase();
+            setupEventListeners();
+        };
+
+    </script>
+</head>
+<body class="bg-gray-50 min-h-screen text-gray-800">
+
+    <!-- Nachrichtenbox -->
+    <div id="messageBox" class="fixed top-4 right-4 z-50 p-4 rounded-lg shadow-xl transition-opacity duration-300 opacity-0 hidden flex items-center space-x-3">
+        <div id="messageIcon"></div>
+        <p id="messageText" class="font-medium text-sm"></p>
+    </div>
+
+    <div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+        <header class="flex justify-between items-center mb-6 border-b pb-4">
+            <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">
+                Team-Planungskalender
+            </h1>
+            <div class="flex items-center space-x-3">
+                <span class="text-xs text-gray-500 hidden sm:block">UserID: <span id="displayUserId">${typeof __initial_auth_token !== 'undefined' ? 'Wird geladen...' : 'Anonym'}</span></span>
+                <button id="openSettingsModalBtn" class="px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-600 transition duration-150 flex items-center">
+                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.543.333 1.29.333 1.832 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    Einstellungen
                 </button>
             </div>
-            
-            <!-- Grid Container for Calendar Content -->
-            <div id="calendar-grid-wrapper" class="overflow-x-auto">
-                <!-- Kalendergitter wird hier eingefügt -->
-                <div id="calendar-grid" class="p-0 min-w-full">
-                    <!-- Inhalt des Grids kommt hier rein -->
+        </header>
+
+        <!-- Kalender-Container -->
+        <div id="calendar-container" class="calendar-container bg-white rounded-xl shadow-2xl overflow-hidden">
+            <!-- Kalender wird hier durch JavaScript gerendert -->
+            <div class="p-8 text-center text-gray-500">
+                Lade Kalender und Authentifizierung...
+            </div>
+        </div>
+    </div>
+
+    <!-- Einstellungs-Modal -->
+    <div id="settingsModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-40 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-3xl w-full max-w-2xl transform transition-all p-6">
+                
+                <div class="flex justify-between items-center border-b pb-3 mb-4">
+                    <h2 class="text-2xl font-bold text-gray-900">Kalendereinstellungen</h2>
+                    <button id="closeSettingsModalBtn" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+
+                <!-- Allgemeine Einstellungen -->
+                <section class="mb-6 p-4 border rounded-lg bg-gray-50">
+                    <h3 class="text-xl font-semibold mb-3 text-gray-700">Allgemeine Zeiten & Feiertage</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label for="startHour" class="block text-sm font-medium text-gray-700">Startstunde (24h)</label>
+                            <input type="number" id="startHour" min="0" max="23" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border">
+                        </div>
+                        <div>
+                            <label for="endHour" class="block text-sm font-medium text-gray-700">Endstunde (24h)</label>
+                            <input type="number" id="endHour" min="0" max="24" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border">
+                        </div>
+                        <div class="md:col-span-3">
+                            <label for="holidays" class="block text-sm font-medium text-gray-700">Feiertage (MM-TT, komma-separiert)</label>
+                            <input type="text" id="holidays" placeholder="z.B. 01-01, 12-25" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border">
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Mitarbeiterverwaltung -->
+                <section class="mb-6 p-4 border rounded-lg bg-gray-50">
+                    <h3 class="text-xl font-semibold mb-3 text-gray-700">Mitarbeiter verwalten</h3>
+                    
+                    <ul id="employeeList" class="max-h-48 overflow-y-auto pr-2 mb-4 space-y-2">
+                        <!-- Mitarbeiterliste wird durch JS gefüllt -->
+                        <li class="text-gray-500">Keine Mitarbeiter gefunden.</li>
+                    </ul>
+
+                    <form id="addEmployeeForm" class="flex flex-col sm:flex-row gap-2 border-t pt-4">
+                        <input type="text" id="newEmpName" placeholder="Name des Mitarbeiters" required class="flex-grow rounded-md border-gray-300 shadow-sm p-2 border">
+                        <input type="text" id="newEmpRole" placeholder="Rolle (Optional)" class="flex-grow rounded-md border-gray-300 shadow-sm p-2 border">
+                        <button type="submit" class="px-4 py-2 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition duration-150">
+                            Hinzufügen
+                        </button>
+                    </form>
+                </section>
+
+                <div class="mt-6 flex justify-end">
+                    <button id="saveSettingsBtn" class="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-xl hover:bg-blue-700 transition duration-150">
+                        Einstellungen speichern
+                    </button>
                 </div>
             </div>
-
-            <p id="error-message" class="text-center text-red-500 p-4 hidden">Daten konnten nicht vom Server geladen werden.</p>
         </div>
-
     </div>
+    
+    <!-- Termin-Modal (Neu/Bearbeiten) -->
+    <div id="appointmentModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-40 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-3xl w-full max-w-lg transform transition-all p-6">
+                
+                <div class="flex justify-between items-center border-b pb-3 mb-4">
+                    <h2 class="text-2xl font-bold text-gray-900">Termin buchen/bearbeiten</h2>
+                    <button id="closeAppointmentModalBtn" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
 
-    <!-- Modal für Termin-Erstellung/Bearbeitung/Löschung -->
-    <div id="appointment-modal" class="modal-backdrop hidden">
-        <div class="bg-white rounded-lg shadow-2xl p-6 w-full max-w-md">
-            <h3 class="text-2xl font-bold mb-4" id="modal-title">Neuen Termin erstellen</h3>
-            
-            <p class="mb-2 text-sm text-gray-600">Mitarbeiter: <span id="modal-employee-name" class="font-semibold text-gray-800"></span></p>
-            <p class="mb-4 text-sm text-gray-600">Zeitraum: <span id="modal-time-range" class="font-semibold text-gray-800"></span></p>
+                <p class="mb-4 text-sm text-gray-600">
+                    Termin für Mitarbeiter: <span id="appointmentEmployeeName" class="font-bold text-blue-600"></span>
+                </p>
 
-            <label class="block mb-2 text-sm font-medium text-gray-700">Titel</label>
-            <input type="text" id="appointment-title" class="w-full p-2 border border-gray-300 rounded-lg mb-4 focus:ring-blue-500 focus:border-blue-500" placeholder="Besprechung, Urlaub, ...">
-            
-            <div class="flex justify-between space-x-3">
-                <button id="modal-cancel" class="flex-1 px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors">Abbrechen</button>
-                <button id="modal-delete" class="flex-1 px-4 py-2 text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors hidden">Löschen</button>
-                <button id="modal-save" class="flex-1 px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">Speichern</button>
+                <form id="appointmentForm" data-appointment-id="" data-employee-id="">
+                    <div class="mb-4">
+                        <label for="appTitle" class="block text-sm font-medium text-gray-700">Titel des Termins</label>
+                        <input type="text" id="appTitle" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border">
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="appDescription" class="block text-sm font-medium text-gray-700">Beschreibung (Optional)</label>
+                        <textarea id="appDescription" rows="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"></textarea>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-4 mb-6">
+                        <div>
+                            <label for="appDate" class="block text-sm font-medium text-gray-700">Datum</label>
+                            <input type="date" id="appDate" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border">
+                        </div>
+                        <div>
+                            <label for="appTimeStart" class="block text-sm font-medium text-gray-700">Startzeit</label>
+                            <input type="time" id="appTimeStart" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border">
+                        </div>
+                        <div>
+                            <label for="appTimeEnd" class="block text-sm font-medium text-gray-700">Endzeit</label>
+                            <input type="time" id="appTimeEnd" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border">
+                        </div>
+                    </div>
+
+                    <div class="flex justify-between items-center pt-4 border-t">
+                        <button type="button" id="deleteAppointmentBtn" class="px-4 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition duration-150 hidden">
+                            Termin löschen
+                        </button>
+                        <button type="submit" class="px-6 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-xl hover:bg-green-700 transition duration-150 ml-auto">
+                            Speichern
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
 
-
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const calendarGrid = document.getElementById('calendar-grid');
-            const errorMessage = document.getElementById('error-message');
-            const prevWeekBtn = document.getElementById('prev-week');
-            const nextWeekBtn = document.getElementById('next-week');
-            const currentWeekRange = document.getElementById('current-week-range');
-            const modal = document.getElementById('appointment-modal');
-            const modalTitle = document.getElementById('modal-title');
-            const modalEmployeeName = document.getElementById('modal-employee-name');
-            const modalTimeRange = document.getElementById('modal-time-range');
-            const appointmentTitleInput = document.getElementById('appointment-title');
-            const modalCancelBtn = document.getElementById('modal-cancel');
-            const modalDeleteBtn = document.getElementById('modal-delete');
-            const modalSaveBtn = document.getElementById('modal-save');
-
-            // --- GLOBALE VARIABLEN ---
-            let currentDate = new Date();
-            let employeesData = [];
-            let appointmentsData = [];
-            let globalStartHour = 8;
-            let globalEndHour = 20; // 8 Uhr morgens bis 8 Uhr abends (20 Uhr)
-
-            let currentAppointmentData = null; // Speichert Daten für CREATE/UPDATE/DELETE
-
-            // Hilfsfunktion zur Formatierung
-            const formatDate = (date) => date.toISOString().split('T')[0]; // YYYY-MM-DD
-            const allWeekdays = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa']; // Kurze deutsche Wochentage
-
-            // =========================================================
-            // --- NEUE DB-FUNKTIONEN (MONGO DB API) ---
-            // =========================================================
-
-            /**
-             * Lädt alle Daten vom Express-Server.
-             * @returns {Promise<boolean>} Gibt true bei Erfolg, false bei Fehler zurück.
-             */
-            async function loadData() {
-                try {
-                    // Mitarbeiter laden
-                    const employeesResponse = await fetch('/api/employees');
-                    employeesData = await employeesResponse.json();
-                    
-                    if (employeesResponse.status !== 200) throw new Error('Mitarbeiter-Datenfehler');
-
-                    // Termine laden
-                    const appointmentsResponse = await fetch('/api/appointments');
-                    appointmentsData = await appointmentsResponse.json();
-                    
-                    if (appointmentsResponse.status !== 200) throw new Error('Termin-Datenfehler');
-                    
-                    errorMessage.classList.add('hidden');
-                    return true;
-                } catch (error) {
-                    console.error('Fehler beim Laden der Daten vom Server:', error);
-                    errorMessage.classList.remove('hidden');
-                    return false;
-                }
-            }
-            
-            /**
-             * Speichert einen neuen Termin oder aktualisiert einen bestehenden.
-             */
-            async function saveAppointment(appointment) {
-                try {
-                    let response;
-                    if (appointment._id) {
-                        // UPDATE (PUT)
-                        response = await fetch(`/api/appointments/${appointment._id}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(appointment)
-                        });
-                    } else {
-                        // CREATE (POST)
-                        // Beim Erstellen muss die _id entfernt werden, falls sie von einem Klick auf einen Slot versehentlich gesetzt wurde
-                        const { _id, ...newAppointment } = appointment;
-                        response = await fetch('/api/appointments', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(newAppointment)
-                        });
-                    }
-
-                    if (!response.ok) throw new Error('Speichern fehlgeschlagen');
-                    
-                    // Daten neu laden und Kalender neu rendern
-                    await loadData();
-                    renderCalendar(currentDate);
-
-                } catch (error) {
-                    console.error('Fehler beim Speichern des Termins:', error);
-                    alert('Fehler beim Speichern: ' + error.message);
-                }
-            }
-
-            /**
-             * Löscht einen Termin.
-             */
-            async function deleteAppointment(id) {
-                try {
-                    const response = await fetch(`/api/appointments/${id}`, {
-                        method: 'DELETE'
-                    });
-
-                    if (!response.ok) throw new Error('Löschen fehlgeschlagen');
-
-                    // Daten neu laden und Kalender neu rendern
-                    await loadData();
-                    renderCalendar(currentDate);
-                } catch (error) {
-                    console.error('Fehler beim Löschen des Termins:', error);
-                    alert('Fehler beim Löschen: ' + error.message);
-                }
-            }
-
-
-            // =========================================================
-            // --- KALENDER LOGIK (ANZEIGE & RENDERING) ---
-            // =========================================================
-
-            // Ermittelt den Montag der aktuellen Woche
-            function getStartOfWeek(date) {
-                const day = date.getDay(); // 0 (Sonntag) bis 6 (Samstag)
-                const diff = date.getDate() - day + (day === 0 ? -6 : 1); // Montag = 1
-                const start = new Date(date.getFullYear(), date.getMonth(), diff);
-                start.setHours(0, 0, 0, 0); // Wichtig: Zeit auf 0 setzen
-                return start;
-            }
-
-            // Funktion zur Überprüfung, ob es ein Feiertag/Urlaub ist (simuliert)
-            function isHoliday(date, employeeId) {
-                const dateString = formatDate(date);
-                // Beispiel: Simuliere, dass Erika Musterfrau am 2025-10-25 Urlaub hat
-                if (employeeId === 'e2' && dateString === '2025-10-25') {
-                     return true;
-                }
-                return false;
-            }
-
-            /**
-             * Rendert die Termin-Boxen in der Kalenderansicht.
-             */
-            function renderAppointmentsInGrid(grid, daysToRender, employees, startHour, endHour) {
-                const hourHeight = 60; // Höhe einer Stunde in px
-
-                appointmentsData.forEach(appointment => {
-                    // Finde den Mitarbeiter
-                    const emp = employees.find(e => e.id === appointment.employeeId);
-                    if (!emp) return; 
-
-                    const appointmentDate = new Date(appointment.date);
-                    
-                    // Finde den Tag im aktuellen Rendering-Bereich
-                    const dayIndex = daysToRender.findIndex(d => 
-                        formatDate(d.date) === appointment.date // Vergleiche YYYY-MM-DD
-                    );
-                    
-                    if (dayIndex === -1) return; // Termin liegt nicht in dieser Woche
-
-                    const duration = appointment.endHour - appointment.startHour;
-                    
-                    // Berechnung der Position im Grid
-                    // Spalten: [Zeit] [Mo Emp1] [Mo Emp2] ... [So EmpN]
-                    const columnIndex = dayIndex * employees.length + employees.findIndex(e => e.id === emp.id);
-                    
-                    // Grid Spalten-Index: 1 (Zeitspalte) + columnIndex + 1 
-                    // Da wir dynamische grid-columns verwenden (siehe unten), funktioniert die absolute Spaltennummerierung.
-                    const columnStart = columnIndex + 2; 
-
-                    // Start-Zeile (Header-Zeile ist 1)
-                    const rowStart = appointment.startHour - startHour + 2; // +2 wegen Header-Zeile und 0-basierter Indexkorrektur
-                    
-                    // End-Zeile
-                    const rowEnd = rowStart + duration;
-
-                    // Erstellt das Termin-Element
-                    const appointmentEl = document.createElement('div');
-                    appointmentEl.className = 'appointment-box transition-all duration-150';
-                    appointmentEl.title = `${appointment.title} (${appointment.startHour}:00 - ${appointment.endHour}:00)`;
-                    
-                    // Setze die Grid-Position (wichtig für das Layout)
-                    appointmentEl.style.gridColumn = `${columnStart} / span 1`;
-                    appointmentEl.style.gridRow = `${rowStart} / span ${duration}`;
-                    
-                    appointmentEl.textContent = appointment.title;
-                    
-                    // Fügt Klick-Handler zum Bearbeiten hinzu
-                    appointmentEl.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        openModal(appointment);
-                    });
-
-                    grid.appendChild(appointmentEl);
-                });
-            }
-
-            // Haupt-Rendering-Funktion
-            function renderCalendar(startDate) {
-                calendarGrid.innerHTML = '';
-                
-                if (employeesData.length === 0) {
-                     calendarGrid.innerHTML = '<p class="text-center p-8 text-gray-500">Mitarbeiterdaten konnten nicht geladen werden.</p>';
-                     return;
-                }
-
-                const startOfWeek = getStartOfWeek(startDate);
-                const daysToRender = [];
-                
-                // 7 Tage ab Montag sammeln
-                for (let i = 0; i < 7; i++) {
-                    const date = new Date(startOfWeek);
-                    date.setDate(startOfWeek.getDate() + i);
-                    daysToRender.push({
-                        date: date,
-                        dateString: formatDate(date),
-                        weekdayName: date.toLocaleDateString('de-DE', { weekday: 'short' }),
-                        day: date.getDate()
-                    });
-                }
-                
-                // Wochenbereich anzeigen
-                const weekStart = daysToRender[0].date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-                const weekEnd = daysToRender[6].date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-                currentWeekRange.textContent = `${weekStart} – ${weekEnd}`;
-
-                // --- CSS Grid Definition ---
-                calendarGrid.style.display = 'grid';
-                // 1 Spalte für Zeit + (7 Tage * Anzahl Mitarbeiter) Spalten für Kalenderzellen
-                const totalColumns = 1 + (7 * employeesData.length);
-                calendarGrid.style.gridTemplateColumns = `80px repeat(${7 * employeesData.length}, 1fr)`; 
-                
-                const grid = calendarGrid;
-                
-                // --- ERSTE ZEILE: Datum/Wochentag Headers ---
-                
-                // Leere Ecke oben links (Zeit Header)
-                const emptyCorner = document.createElement('div');
-                emptyCorner.className = 'time-header-cell p-2 border-b-2 border-r bg-gray-100 sticky top-0 left-0 z-20';
-                grid.appendChild(emptyCorner);
-
-                // Datum Headers
-                daysToRender.forEach(day => {
-                    const dayHeader = document.createElement('div');
-                    dayHeader.className = `p-2 text-center text-sm font-semibold border-b-2 bg-gray-100 sticky top-0 z-10`;
-                    dayHeader.textContent = `${day.weekdayName} ${day.day}.`;
-                    // Spanning über alle Mitarbeiter dieses Tages
-                    dayHeader.style.gridColumn = `span ${employeesData.length}`; 
-                    grid.appendChild(dayHeader);
-                });
-
-                // --- ZWEITE ZEILE: Mitarbeiter Headers (unter jedem Datum) ---
-                
-                // Leere Ecke unten links
-                const emptyRow2 = document.createElement('div');
-                emptyRow2.className = 'time-header-cell p-1 border-b border-r border-gray-300 bg-blue-100/70 sticky left-0 z-20';
-                grid.appendChild(emptyRow2);
-                
-                // Mitarbeiter-Header für jeden Tag
-                daysToRender.forEach(day => {
-                    employeesData.forEach(emp => {
-                        const empHeader = document.createElement('div');
-                        empHeader.className = 'p-1 text-center text-xs font-medium border-b border-gray-300 border-r bg-blue-100/70';
-                        empHeader.textContent = emp.name.split(' ')[0]; // Nur Vorname
-                        grid.appendChild(empHeader);
-                    });
-                });
-
-
-                // --- STUNDEN-Raster (ab Zeile 3) ---
-                for (let hour = globalStartHour; hour < globalEndHour; hour++) {
-                    
-                    // Zeit-Slot (erste Spalte)
-                    const timeSlot = document.createElement('div');
-                    timeSlot.className = 'time-slot border-r-2 border-gray-400 font-mono sticky left-0 z-10 bg-white';
-                    timeSlot.textContent = `${hour}:00`;
-                    grid.appendChild(timeSlot);
-
-                    // Slots für jeden Tag und Mitarbeiter
-                    daysToRender.forEach(day => {
-                        employeesData.forEach(emp => {
-                            // Wochentagskürzel für Mitarbeiter-Arbeitszeiten (z.B. 'Mo', 'Di', ...)
-                            const dayKey = allWeekdays[day.date.getDay()];
-                            
-                            // Prüfe, ob Mitarbeiter an diesem Tag überhaupt Stunden eingetragen hat (aus initialEmployees)
-                            const empHours = emp.dailyHours ? emp.dailyHours[dayKey] : null;
-
-                            // Prüfe, ob die Stunde in der Arbeitszeit liegt
-                            const isWithinHours = empHours && hour >= empHours.start && hour < empHours.end;
-                            
-                            const cell = document.createElement('div');
-                            const isHolidayDay = isHoliday(day.date, emp.id);
-                            
-                            if (isWithinHours && !isHolidayDay) {
-                                // Klickbare Zelle innerhalb der Arbeitszeit
-                                cell.className = 'calendar-cell clickable-slot bg-white';
-                                cell.dataset.employeeId = emp.id;
-                                cell.dataset.hour = hour;
-                                cell.dataset.date = day.dateString;
-                                cell.innerHTML = '<div class="minute-line-30"></div>'; // Visuelle 30-Minuten-Trennlinie
-                                
-                                // Event Listener für Termin-Erstellung
-                                cell.addEventListener('click', () => {
-                                    openModal({
-                                        employeeId: emp.id,
-                                        date: day.dateString,
-                                        startHour: hour,
-                                        endHour: hour + 1,
-                                        title: ''
-                                    });
-                                });
-                            } else {
-                                // Nicht-klickbare Zelle außerhalb der Arbeitszeit oder Feiertag
-                                cell.className = `calendar-cell ${isHolidayDay ? 'holiday-cell' : 'off-hours-cell'}`;
-                            }
-                            
-                            grid.appendChild(cell);
-                        });
-                    });
-                }
-                
-                // Termine rendern (ab Zeile 3)
-                renderAppointmentsInGrid(grid, daysToRender, employeesData, globalStartHour, globalEndHour);
-            }
-
-            // =========================================================
-            // --- MODAL LOGIK (CREATE/UPDATE/DELETE) ---
-            // =========================================================
-
-            function openModal(data) {
-                // data kann ein Klick auf einen Slot (neuer Termin) oder ein Klick auf einen Termin (bearbeiten) sein.
-                currentAppointmentData = data;
-                
-                const isNew = !data._id;
-                
-                // UI Elemente setzen
-                modalTitle.textContent = isNew ? "Neuen Termin erstellen" : "Termin bearbeiten";
-                modalDeleteBtn.classList.toggle('hidden', isNew);
-                modalSaveBtn.textContent = isNew ? "Speichern" : "Aktualisieren";
-                
-                const emp = employeesData.find(e => e.id === data.employeeId);
-                modalEmployeeName.textContent = emp ? emp.name : 'Unbekannt';
-                
-                const dateObj = new Date(data.date);
-                const dateText = dateObj.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' });
-                modalTimeRange.textContent = `${dateText}, ${data.startHour}:00 - ${data.endHour}:00 Uhr`;
-                
-                appointmentTitleInput.value = data.title || '';
-                
-                modal.classList.remove('hidden');
-                appointmentTitleInput.focus();
-            }
-
-            function closeModal() {
-                modal.classList.add('hidden');
-                currentAppointmentData = null;
-            }
-
-            // =========================================================
-            // --- EVENT LISTENER ---
-            // =========================================================
-
-            modalCancelBtn.addEventListener('click', closeModal);
-            
-            modalSaveBtn.addEventListener('click', async () => {
-                const title = appointmentTitleInput.value.trim();
-                if (!title) {
-                    alert('Der Titel darf nicht leer sein.');
-                    return;
-                }
-                
-                // Daten für Speichern/Aktualisieren vorbereiten
-                const appointmentToSave = {
-                    ...currentAppointmentData,
-                    title: title,
-                };
-                
-                // Lösche das alte _id Feld, falls es sich um einen neuen Termin handelt,
-                // da der Express-Server dies sonst fälschlicherweise als PUT-Anfrage interpretiert
-                if (!currentAppointmentData._id) {
-                     delete appointmentToSave._id; 
-                }
-                
-                await saveAppointment(appointmentToSave);
-                closeModal();
-            });
-
-            modalDeleteBtn.addEventListener('click', async () => {
-                // Im Original-Code wurde confirm() verwendet, das auf Render blockiert.
-                // Da ich hier keine vollständige Modal-Lösung für die Bestätigung implementiere (was optimal wäre), 
-                // verwenden wir hier temporär console.log und löschen direkt.
-                // In einer Produktionsumgebung müsste hier ein Bestätigungs-Modal implementiert werden.
-                console.log('Termin löschen bestätigt. (Hinweis: In einer echten Anwendung wäre hier ein Bestätigungs-Modal)');
-                if (currentAppointmentData && currentAppointmentData._id) {
-                    await deleteAppointment(currentAppointmentData._id);
-                    closeModal();
-                }
-            });
-
-
-            prevWeekBtn.addEventListener('click', () => {
-                currentDate.setDate(currentDate.getDate() - 7);
-                renderCalendar(currentDate);
-            });
-
-            nextWeekBtn.addEventListener('click', () => {
-                currentDate.setDate(currentDate.getDate() + 7);
-                renderCalendar(currentDate);
-            });
-
-            // --- INITIALISIERUNG ---
-            async function initApp() {
-                // Setzt das Datum auf den aktuellen Tag und holt den Montag dieser Woche
-                currentDate = getStartOfWeek(new Date()); 
-                
-                const success = await loadData();
-                if (success) {
-                    renderCalendar(currentDate); 
-                }
-            }
-
-            initApp();
-        });
-    </script>
 </body>
 </html>
