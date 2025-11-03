@@ -18,6 +18,7 @@ const __dirname = path.dirname(__filename);
 // --- Middleware ---
 app.use(cors()); // CORS für alle Anfragen aktivieren
 app.use(express.json()); // Body-Parser für JSON-Anfragen
+// WICHTIG: 'express.static' MUSS VOR den API-Routen stehen.
 app.use(express.static(path.join(__dirname, 'public'))); // Stellt das Frontend bereit
 
 // --- MongoDB-Verbindung ---
