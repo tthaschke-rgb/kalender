@@ -110,6 +110,7 @@ const Appointment = mongoose.models.Appointment || mongoose.model('Appointment',
 
 // (GET) Globale Einstellungen abrufen
 app.get('/api/settings', async (req, res) => {
+    console.log("API HIT: GET /api/settings"); // DEBUGGING
     try {
         let settings = await Settings.findOne();
         if (!settings) {
@@ -127,6 +128,7 @@ app.get('/api/settings', async (req, res) => {
 
 // (POST) Globale Einstellungen aktualisieren
 app.post('/api/settings', async (req, res) => {
+    console.log("API HIT: POST /api/settings"); // DEBUGGING
     try {
         const updatedSettings = await Settings.findOneAndUpdate(
             {}, // Finde das einzige Dokument
@@ -144,6 +146,7 @@ app.post('/api/settings', async (req, res) => {
 
 // (GET) Alle Mitarbeiter abrufen
 app.get('/api/employees', async (req, res) => {
+    console.log("API HIT: GET /api/employees"); // DEBUGGING
     try {
         const employees = await Employee.find().sort({ firstName: 1 });
         res.json(employees);
@@ -155,6 +158,7 @@ app.get('/api/employees', async (req, res) => {
 
 // (POST) Neuen Mitarbeiter erstellen
 app.post('/api/employees', async (req, res) => {
+    console.log("API HIT: POST /api/employees"); // DEBUGGING
     const { firstName, color } = req.body;
     try {
         const newEmployee = new Employee({
@@ -173,6 +177,7 @@ app.post('/api/employees', async (req, res) => {
 
 // (PUT) Mitarbeiter aktualisieren
 app.put('/api/employees/:id', async (req, res) => {
+    console.log(`API HIT: PUT /api/employees/${req.params.id}`); // DEBUGGING
     try {
         const employee = await Employee.findByIdAndUpdate(req.params.id, req.body, { new: true });
         if (!employee) return res.status(404).json({ message: 'Mitarbeiter nicht gefunden' });
@@ -185,6 +190,7 @@ app.put('/api/employees/:id', async (req, res) => {
 
 // (DELETE) Mitarbeiter löschen
 app.delete('/api/employees/:id', async (req, res) => {
+    console.log(`API HIT: DELETE /api/employees/${req.params.id}`); // DEBUGGING
     try {
         const employee = await Employee.findByIdAndDelete(req.params.id);
         if (!employee) return res.status(404).json({ message: 'Mitarbeiter nicht gefunden' });
@@ -199,6 +205,7 @@ app.delete('/api/employees/:id', async (req, res) => {
 
 // (GET) Alle Termine abrufen
 app.get('/api/appointments', async (req, res) => {
+    console.log("API HIT: GET /api/appointments"); // DEBUGGING
     try {
         const appointments = await Appointment.find();
         res.json(appointments);
@@ -210,6 +217,7 @@ app.get('/api/appointments', async (req, res) => {
 
 // (POST) Neuen Termin erstellen
 app.post('/api/appointments', async (req, res) => {
+    console.log("API HIT: POST /api/appointments"); // DEBUGGING
     try {
         const newAppointment = new Appointment(req.body);
         await newAppointment.save();
@@ -222,6 +230,7 @@ app.post('/api/appointments', async (req, res) => {
 
 // (PUT) Termin aktualisieren
 app.put('/api/appointments/:id', async (req, res) => {
+    console.log(`API HIT: PUT /api/appointments/${req.params.id}`); // DEBUGGING
     try {
         const appointment = await Appointment.findByIdAndUpdate(req.params.id, req.body, { new: true });
         if (!appointment) return res.status(404).json({ message: 'Termin nicht gefunden' });
@@ -234,6 +243,7 @@ app.put('/api/appointments/:id', async (req, res) => {
 
 // (DELETE) Termin löschen
 app.delete('/api/appointments/:id', async (req, res) => {
+    console.log(`API HIT: DELETE /api/appointments/${req.params.id}`); // DEBUGGING
     try {
         const appointment = await Appointment.findByIdAndDelete(req.params.id);
         if (!appointment) return res.status(404).json({ message: 'Termin nicht gefunden' });
@@ -252,6 +262,8 @@ app.delete('/api/appointments/:id', async (req, res) => {
 // Diese Route fängt alle Anfragen ab, die nicht zu einer API-Route passen,
 // und sendet stattdessen die 'index.html'.
 app.get('*', (req, res) => {
+    // Loggen, wenn eine Anfrage von der Fallback-Route abgefangen wird
+    console.log(`FALLBACK HIT: GET ${req.path} -> Sending index.html`);
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
